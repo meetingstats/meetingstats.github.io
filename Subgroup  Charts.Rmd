@@ -1,0 +1,266 @@
+---
+title: "Biophysics and Imaging Subgroup Statistics"
+date: "Updated: `r format(Sys.time(),format = '%A, %B %d, %Y')`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+<style>
+    body .main-container {
+        max-width: 4000px;
+    }
+</style>
+
+```{r, include=FALSE, results='asis'}
+library('dplyr')
+library('tidyr')
+library('ggplot2')
+library('knitr')
+library('kableExtra')
+
+date.start.wed = '170125'
+date.end.wed = '171011'
+date.start.thurs = '171019'
+date.end = format(Sys.time(),format = '%y%m%d')
+
+figsize = 5
+timefigscale = 2/3 #number of inches per bar 
+textsize = 12
+options(width = 12)
+
+datefmtstr = "%y%m%d"
+dates.wed = format(seq(as.Date(date.start.wed,datefmtstr),as.Date(date.end.wed,datefmtstr),by = "week"), format = datefmtstr)
+dates.thurs = format(seq(as.Date(date.start.thurs,datefmtstr),as.Date(date.end,datefmtstr),by = "week"), format = datefmtstr)
+dates = c(dates.wed,dates.thurs)
+
+times = read.table(file = paste0("Subgroup Stats/",dates[1],"_data.csv"),header = TRUE,stringsAsFactors=FALSE,sep = ",")
+misdates = "Missing: ";
+
+for (i in 2:length(dates)) {
+  filename = paste0("Subgroup Stats/",dates[i],"_data.csv")
+  if(file.exists(filename)) {
+    temp = read.table(file = filename,header = TRUE,stringsAsFactors=FALSE,sep = ",")
+    times = bind_rows(times,temp)
+  } else {
+    misdates = paste0(misdates," ",format(as.Date(dates[i],datefmtstr), format = "%m/%d/%Y"))
+  }
+}
+
+#names.avg = times %>% group_by(name) %>% summarise_each(funs(median)) %>% select(-date) %>% mutate(time = time/60)
+#names.avg$name = factor(names.avg$name, levels = names.avg$name[order(names.avg$time)], ordered = TRUE)
+
+nsubgroups = length(unique(times$date))
+
+names.n = times %>% select(name,date) %>% group_by(name) %>% summarise_all(funs(dplyr::n_distinct)) %>% select(name,n = date)
+
+names.avg = times %>% mutate(time = time/60) %>% select(-date,-order) %>% group_by(name) %>% summarise_all(funs(median, mean, sd)) %>% 
+  left_join(names.n, by = "name")
+names.avg$name = factor(names.avg$name, levels = names.avg$name[order(names.avg$median, names.avg$mean)], ordered = TRUE)
+names.avg = names.avg %>% mutate(diff = median-mean, nper = (n / nsubgroups * 100)) %>% select(name,median,mean,diff,sd,n,nper)
+
+pos.avg = times %>% select(-name,-date) %>% group_by(order) %>% summarise_each(funs(mean)) %>% mutate(time = time/60)
+pos.std = times %>% select(-name,-date) %>% group_by(order) %>% summarise_each(funs(sd))  %>% mutate(tstd = time/60) %>% select(order,tstd)
+pos.avg = left_join(pos.avg,pos.std, by = 'order')
+
+group.avg = times %>% mutate(time = time/60) %>% select(time) %>% summarise_all(funs(median, mean, sd)) %>% 
+  mutate(n = nsubgroups, name = "Total") %>% 
+  mutate(diff = median-mean, nper = (n / nsubgroups * 100)) %>% select(name,median,mean,diff,sd,n,nper)
+
+
+times2 = times %>% mutate(time = time/60)
+times2$name = factor(times2$name, levels = names.avg$name[order(names.avg$median, names.avg$mean)], ordered = TRUE)
+
+times3 = times2
+times3$order = factor(times3$order)
+
+times4 = times2[order(times2$date,times2$order),]
+times4$date = factor(times4$date)
+tempdate = as.Date(times4$date,datefmtstr)
+times4$date = format(tempdate, format = "%m/%d/%Y")
+
+times5 = times2 %>% select(-name) %>% group_by(date) %>% summarise(time = sum(time), attend = max(order)) %>% 
+  ungroup() %>% mutate(tpera = time / attend)
+maxattendees = max(times5$attend)
+medtime = times5 %>% group_by(attend) %>% summarise(time = median(time)) %>% ungroup()
+timefit = lm(times5$time ~ times5$attend)
+timecoeff = timefit$coefficients
+attend = 0:(maxattendees)
+fitplot = timecoeff[1]+timecoeff[2]*attend
+fitframe = data.frame(attend,fitplot)
+times5.f = times5
+fitframe.f = fitframe
+times5.f$attend = factor(times5.f$attend)
+fitframe.f$attend = factor(fitframe.f$attend)
+
+avgtimeperperson = mean(times5$tpera)
+names = names.avg$name
+meandiff = rep(0,times = length(names))
+
+for (i in 1:length(names)) {
+  presentdays = times2 %>% select(name,date) %>% filter(name == names[i])
+  presentnumbers = inner_join(presentdays,times5, by = 'date')
+  meandiff[i] = mean(presentnumbers$tpera) - avgtimeperperson
+}
+meandiff = 60*meandiff
+meandiff.f = data.frame(names,meandiff)
+
+titlestr = paste0("Subgroup from ",format(as.Date(dates[1],datefmtstr), format = "%m/%d/%Y"),
+                  " to ",format(as.Date(tail(dates, n=1),datefmtstr), format = "%m/%d/%Y"))
+
+plottheme = theme_bw() + theme(text = element_text(size = textsize, family = "ArialMT"), 
+                               panel.grid.major.x = element_blank(), panel.grid.major.y = element_line(color = 'grey75', size = 0.25),
+                               panel.grid.minor.y = element_line(color = 'grey85', size = 0.25), 
+                               panel.border = element_rect(fill = NA, color = 'black', size = 0.75),
+                               legend.title = element_blank(), legend.key = element_blank())  
+
+astart = 260
+aspace = 12.5
+ax = 1
+ncorr = format(round(cor(times5$attend,times5$time), 4), nsmall = 4)
+
+```
+## Summary
+
+`r titlestr` for a total of `r nsubgroups` subgroup meetings.    
+
+`r misdates`   
+
+```{r, key, echo=FALSE}
+secondsToString <- function(x,digits=2){
+   unlist(
+      lapply(x,
+         function(i){
+            # fractional seconds
+            fs <- as.integer(round((i - round(i))*(10^digits)))
+            fmt <- ''
+            if (i >= 3600)
+               fmt <- '%H:%M:%S'
+            else if (i >= 60)
+            fmt <- '%M:%S'
+            else
+               fmt <- '%OS'
+
+            i <- format(as.POSIXct(strptime("0:0:0","%H:%M:%S")) + i, format=fmt)
+            if (fs > 0)
+               sub('[0]+$','',paste(i,fs,sep='.'))
+            else
+               i
+         }
+      )
+   )
+}
+
+med.table = names.avg[order(names.avg$name),] 
+med.table$name = as.character(med.table$name)
+med.table = bind_rows(med.table,group.avg) %>% mutate(rank = c( as.character(seq(1,nrow(names.avg))), " " )) %>% 
+  select(rank,name,median,mean,diff,sd,n,nper)
+
+#med.table$mean = secondsToString(med.table$mean*60,digits = 0)
+#med.table$median = secondsToString(med.table$median*60,digits = 0)
+#med.table$diff = med.table$diff*60
+#med.table$sd = secondsToString(med.table$sd*60,digits = 0)
+kable(med.table,"html",col.names = c(" "," ", "Median", "Mean", "Median - Mean", "Standard Deviation", "Count", "Percent"), 
+      row.names = FALSE, digits = 2)  %>% kable_styling(bootstrap_options = c("striped", "hover"), full_width = F, position = "left") %>% 
+  add_header_above(c(" ", "  ", "Time (min)" = 4, "Attendance" = 2)) %>% row_spec(nrow(names.avg)+1, bold = T, background = "#BBBBBB")
+```
+
+
+## Length per day
+### Stacked bar
+```{r, fig.width=20, fig.height=6, echo=FALSE}
+ggplot(times4,aes(date,time)) + 
+  geom_bar(aes(fill = name, group = order), stat = "identity", color = 'black', position = position_stack(reverse = TRUE)) + scale_fill_brewer(palette = "Set1") +
+  ylab('time (min)') + xlab(NULL) + scale_y_continuous(expand = c(0,0), limits = c(0,270), breaks = c(0,60,120,180,240,270)) + 
+  plottheme +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+    
+Bars are in speaking order from bottom (time 0) to top (end). 
+
+### Offset bar
+```{r, fig.width=20, fig.height=6, echo=FALSE}
+filtweek = 8
+filtdates = presentdays$date
+filtdates = filtdates[(length(filtdates)-filtweek+1):length(filtdates)]
+
+ggplot(times4,aes(date,time)) + 
+  geom_bar(aes(fill = name, group = order), stat = "identity", color = 'black', position = position_dodge()) + 
+  scale_fill_brewer(palette = "Set1") +
+  ylab('time (min)') + xlab(NULL) + scale_y_continuous(expand = c(0,0), limits = c(0,120), breaks = c(0,15,30,45,60,75,90,105,120)) + 
+  plottheme +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+     
+Same as above except each person is side by side to compare total times. 
+
+## Time per person
+### Box plot
+```{r, fig.width=6, fig.height=4, echo=FALSE}
+ggplot(times2,aes(name,time)) + 
+  geom_boxplot(aes(fill = name)) + scale_fill_brewer(palette = "Set1", guide = FALSE) + plottheme + 
+  ylab('time (min)') + xlab(NULL)
+```
+
+Boxes are ordered by the median speaking time (black bar in the box plot).
+Lower and upper box edges correspond to the first and third quartiles. Whiskers extend to no more than the 1.5 times the interquartile range. Individual points are outliers beyond the whiskers. 
+
+### Scatter plot
+```{r, fig.width=6, fig.height=4, echo=FALSE}
+ggplot(times2,aes(name,time)) + 
+  geom_point(aes(fill = factor(order)), size = 2, shape = 21, color = 'black') + scale_fill_brewer(palette = "Blues") + plottheme + 
+  ylab('time (min)') + xlab(NULL)
+```
+
+
+## Time compared to order
+### Box plot
+```{r, fig.width=6, fig.height=4, echo=FALSE}
+ggplot(times3,aes(order,time)) + 
+  geom_boxplot(aes(fill = order)) +  plottheme + scale_fill_brewer(palette = "Blues") +
+  ylab('time (min)') + xlab('order position')
+```
+
+
+### Scatter plot
+```{r, fig.width=6, fig.height=4, echo=FALSE}
+ggplot(times2,aes(order,time)) + 
+  geom_point(aes(fill = name), size = 2, shape = 21, color = 'black') + scale_fill_brewer(palette = "Set1") + plottheme + 
+  ylab('time (min)') + xlab('order position')
+```
+
+Each point corresponds to a person's speaking time at the speaking order. 
+
+## Time per number of people scatter plot
+```{r, fig.width=6, fig.height=4, echo=FALSE}
+ggplot(times5,aes(attend,time)) + 
+  geom_point(fill = "white") +  plottheme + scale_y_continuous(expand = c(0,0), limits = c(0,270), breaks = c(0,60,120,180,240,270)) +
+  geom_line(data = fitframe, aes(attend,fitplot, group = 1)) +
+  annotate('text', label = paste0("Slope: ", format(round(timecoeff[2], 2), nsmall = 2), " min"), x = ax, y = astart) +
+  annotate('text', label = paste0("Intercept: ", format(round(timecoeff[1], 2), nsmall = 2), " min"), x = ax, y = astart-aspace) +
+  annotate('text', label = paste0("R: ", ncorr), x = ax, y = astart-2*aspace) +
+  ylab('time (min)') + xlab('number of people')
+```
+
+
+
+## How often each person goes in an order position
+```{r, fig.width=6, fig.height=6, echo=FALSE}
+plot <- ggplot(times2,aes(x = order)) + 
+  geom_histogram(aes(y = ..count.., fill = name), color = 'black', binwidth = 1) + plottheme +
+  ylab('counts') + xlab('order position') + facet_wrap(~ name, ncol = 3, scales = "fixed") +
+  scale_x_continuous(breaks = 1:nrow(names.avg)) + scale_fill_brewer(palette = "Set1", guide = FALSE)
+maxcount <- max(ggplot_build(plot)$data[[1]]$count)
+plot + scale_y_continuous(breaks = seq(from = 0, to = maxcount, by = 2)) 
+```
+
+
+
+<!-- ## Time difference when person is present -->
+```{r, fig.width=6, fig.height=4, include=FALSE}
+ggplot(meandiff.f,aes(names,meandiff)) + 
+  geom_bar(aes(fill = names), stat = "identity", color = 'black') + scale_fill_brewer(palette = "Set1", guide = FALSE) + plottheme + 
+  ylab('time per person change (s)') + xlab(NULL) + 
+  scale_y_continuous(expand = c(0,0), limits = c(-120,30), breaks = c(-120,-90,-60,-30,0,30))
+```
