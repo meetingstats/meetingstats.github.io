@@ -1,6 +1,6 @@
 clearvars;
 global names order
-names = {'Matthew','Xiaolei','Itay','Hannah','Maya','Theresa'};
+names = {'Matthew','Xiaolei','Itay','Hannah','Maya'};
 %names = {'Hannah','Matthew','Xiaolei','Itay','Maya'};
 
 
