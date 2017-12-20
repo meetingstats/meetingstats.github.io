@@ -1,11 +1,12 @@
 clearvars;
 global names order
-names = {'Matthew','Xiaolei','Itay','Hannah','Maya'};
-%names = {'Hannah','Matthew','Xiaolei','Itay','Maya'};
+names = {'Itay','Hannah','Xiaolei','Grace'};
 
 
 order = randperm(length(names));
-%order = [order+1 1];
+
+% order = randperm(length(names)-2);
+% order = [order+2 2 1];
 
 for m=1:length(order)
     disp([num2str(m) '. ' names{order(m)}]);
