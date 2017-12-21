@@ -20,10 +20,17 @@ library('ggplot2')
 library('knitr')
 library('kableExtra')
 
+#wednesday date range 1
 date.start.wed = '170125'
 date.end.wed = '171011'
+
+#thursday date range
 date.start.thurs = '171019'
-date.end = format(Sys.time(),format = '%y%m%d')
+date.end.thurs = '171214'
+
+#wednesday date range 2 - current range
+date.start.wed2 = '171220'
+date.end.wed2 = format(Sys.time(),format = '%y%m%d')
 
 figsize = 5
 timefigscale = 2/3 #number of inches per bar 
@@ -31,9 +38,13 @@ textsize = 12
 options(width = 12)
 
 datefmtstr = "%y%m%d"
-dates.wed = format(seq(as.Date(date.start.wed,datefmtstr),as.Date(date.end.wed,datefmtstr),by = "week"), format = datefmtstr)
-dates.thurs = format(seq(as.Date(date.start.thurs,datefmtstr),as.Date(date.end,datefmtstr),by = "week"), format = datefmtstr)
-dates = c(dates.wed,dates.thurs)
+#Make the first set of Wednesday dates
+dates.wed = format(seq(as.Date(date.start.wed,datefmtstr),as.Date(date.end.wed,datefmtstr),by = "week"), format = datefmtstr)  
+#Make the first set of Thursday dates
+dates.thurs = format(seq(as.Date(date.start.thurs,datefmtstr),as.Date(date.end.thurs,datefmtstr),by = "week"), format = datefmtstr)
+#Make the second set of Wednesday dates - active set
+dates.wed2 = format(seq(as.Date(date.start.wed2,datefmtstr),as.Date(date.end.wed2,datefmtstr),by = "week"), format = datefmtstr)
+dates = c(dates.wed,dates.thurs,dates.wed2) #put them all together 
 
 times = read.table(file = paste0("Subgroup Stats/",dates[1],"_data.csv"),header = TRUE,stringsAsFactors=FALSE,sep = ",")
 misdates = "Missing: ";
