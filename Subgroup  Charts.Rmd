@@ -32,6 +32,7 @@ date.end.thurs = '171214'
 date.start.wed2 = '171220'
 date.end.wed2 = format(Sys.time(),format = '%y%m%d')
 
+
 figsize = 5
 timefigscale = 2/3 #number of inches per bar 
 textsize = 12
@@ -44,6 +45,7 @@ dates.wed = format(seq(as.Date(date.start.wed,datefmtstr),as.Date(date.end.wed,d
 dates.thurs = format(seq(as.Date(date.start.thurs,datefmtstr),as.Date(date.end.thurs,datefmtstr),by = "week"), format = datefmtstr)
 #Make the second set of Wednesday dates - active set
 dates.wed2 = format(seq(as.Date(date.start.wed2,datefmtstr),as.Date(date.end.wed2,datefmtstr),by = "week"), format = datefmtstr)
+
 dates = c(dates.wed,dates.thurs,dates.wed2) #put them all together 
 
 times = read.table(file = paste0("Subgroup Stats/",dates[1],"_data.csv"),header = TRUE,stringsAsFactors=FALSE,sep = ",")
